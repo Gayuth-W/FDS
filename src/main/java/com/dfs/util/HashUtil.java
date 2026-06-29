@@ -56,4 +56,13 @@ public final class HashUtil {
         return String.format("%.1f TB", sizeBytes);
     }
 
+    /** Encode bytes as a lowercase hex string (binary-over-JSON, like data.hex()). */
+    public static String toHex(byte[] data) {
+        return HexFormat.of().formatHex(data);
+    }
+
+    /** Decode a hex string back to bytes (bytes.fromhex equivalent). */
+    public static byte[] fromHex(String hex) {
+        return HexFormat.of().parseHex(hex);
+    }
 }
