@@ -24,5 +24,20 @@ public final class HashUtil {
         return sha256Hex(unique.getBytes(StandardCharsets.UTF_8));
     }
 
+    /** Verify data integrity using SHA-256 (hex). Mirrors calculate_checksum(data). */
+    public static String calculateChecksum(byte[] data) {
+        return sha256Hex(data);
+    }
+
+    private static String sha256Hex(byte[] data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(data);
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
 
 }
