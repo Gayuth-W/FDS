@@ -39,5 +39,10 @@ public final class HashUtil {
         }
     }
 
+    /** Current time as Unix epoch seconds (double), matching Python's time.time(). */
+    public static double now() {
+        return System.currentTimeMillis() / 1000.0;
+    }
+
 
 }
