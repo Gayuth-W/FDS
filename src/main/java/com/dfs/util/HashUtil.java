@@ -44,5 +44,16 @@ public final class HashUtil {
         return System.currentTimeMillis() / 1000.0;
     }
 
+    /** Convert bytes to a human readable string. Mirrors format_size(). */
+    public static String formatSize(double sizeBytes) {
+        String[] units = {"B", "KB", "MB", "GB"};
+        for (String unit : units) {
+            if (sizeBytes < 1024) {
+                return String.format("%.1f %s", sizeBytes, unit);
+            }
+            sizeBytes /= 1024;
+        }
+        return String.format("%.1f TB", sizeBytes);
+    }
 
 }
