@@ -1,0 +1,20 @@
+# Maven build output
+target/
+
+# Runtime node data (blocks, checkpoints, metadata)
+data/
+
+# Node logs from run-cluster.sh
+node_*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
