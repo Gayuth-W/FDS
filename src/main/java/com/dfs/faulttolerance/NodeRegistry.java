@@ -1,6 +1,8 @@
 package com.dfs.faulttolerance;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -68,4 +70,28 @@ public class NodeRegistry {
             lock.unlock();
         }
     }
+
+    /** Nodes seen within failure_timeout; prunes (and FAILs) stale ones. */
+    public List<String> getLiveNodes() {
+        lock.lock();
+        try {
+            double now = now();
+            List<String> dead = new ArrayList<>();
+            for (Map.Entry<String, Double> e : liveNodes.entrySet()) {
+                if (now - e.getValue() > FAILURE_TIMEOUT) {
+                    dead.add(e.getKey());
+                }
+            }
+            for (String n : dead) {
+                if (nodeStatus.get(n) != NodeStatus.FAILED) {
+                    nodeStatus.put(n, NodeStatus.FAILED);
+                    log.warn("Node {} marked as FAILED (no heartbeat for {}s)", n, FAILURE_TIMEOUT);
+                }
+                liveNodes.remove(n);
+            }
+            return new ArrayList<>(liveNodes.keySet());
+        } finally {
+            lock.unlock();
+        }
+    }    
 }
