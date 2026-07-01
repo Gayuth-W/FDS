@@ -93,7 +93,7 @@ public class NodeRegistry {
         } finally {
             lock.unlock();
         }
-    }    
+    }
 
     public NodeStatus getNodeStatus(String node) {
         lock.lock();
@@ -102,5 +102,63 @@ public class NodeRegistry {
         } finally {
             lock.unlock();
         }
-    }    
+    }
+
+    public void markFailed(String node) {
+        lock.lock();
+        try {
+            nodeStatus.put(node, NodeStatus.FAILED);
+            liveNodes.remove(node);
+            log.info("Node {} manually marked as FAILED", node);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void markRecovering(String node) {
+        lock.lock();
+        try {
+            nodeStatus.put(node, NodeStatus.RECOVERING);
+            log.info("Node {} marked as RECOVERING", node);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Direct (lock-free) snapshot of the last-seen map, used by the monitor loop. */
+    public Map<String, Double> liveNodesSnapshot() {
+        lock.lock();
+        try {
+            return new LinkedHashMap<>(liveNodes);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean isMajority() {
+        List<String> live = getLiveNodes();
+        if (!live.contains(nodeId)) {
+            live.add(nodeId);
+        }
+        return live.size() > totalNodes / 2;
+    }
+
+    public List<String> getActiveNodes() {
+        lock.lock();
+        try {
+            List<String> active = new ArrayList<>();
+            for (Map.Entry<String, NodeStatus> e : nodeStatus.entrySet()) {
+                if (e.getValue() == NodeStatus.HEALTHY) {
+                    active.add(e.getKey());
+                }
+            }
+            return active;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private static double now() {
+        return System.currentTimeMillis() / 1000.0;
+    }
 }
