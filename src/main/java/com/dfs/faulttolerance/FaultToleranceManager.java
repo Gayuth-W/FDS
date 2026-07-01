@@ -62,5 +62,17 @@ public class FaultToleranceManager {
         log.info("FaultToleranceManager initialized for {}", nodeId);
     }
 
+    public void start() {
+        running = true;
+        monitorThread = Thread.ofVirtual().name("ft-monitor-" + nodeId).start(this::monitorFailures);
+        log.info("Fault tolerance monitoring started");
+    }
+
+    public void stop() {
+        running = false;
+        if (monitorThread != null) {
+            monitorThread.interrupt();
+        }
+    }
 
 }
