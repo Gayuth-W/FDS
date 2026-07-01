@@ -49,5 +49,23 @@ public class NodeRegistry {
         }
     }
 
-
+    /** Record that a node is alive (called on every received heartbeat). */
+    public void registerNode(String node) {
+        lock.lock();
+        try {
+            liveNodes.put(node, now());
+            NodeStatus prev = nodeStatus.get(node);
+            if (prev == NodeStatus.FAILED) {
+                nodeStatus.put(node, NodeStatus.RECOVERING);
+                log.info("Node {} is RECOVERING", node);
+            } else if (prev == NodeStatus.SUSPECTED) {
+                nodeStatus.put(node, NodeStatus.HEALTHY);
+                log.info("Node {} is back to HEALTHY", node);
+            } else {
+                nodeStatus.put(node, NodeStatus.HEALTHY);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
 }
