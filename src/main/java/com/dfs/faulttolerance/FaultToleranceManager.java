@@ -132,4 +132,8 @@ public class FaultToleranceManager {
         nodeStatus.put(node, NodeStatus.HEALTHY);
         log.info("[FAULT] Node {} fully synced and state is now HEALTHY", node);
     }    
+
+    private List<String> getAllNodes() {
+        return new ArrayList<>(config.getAllNodes().keySet());
+    }    
 }
