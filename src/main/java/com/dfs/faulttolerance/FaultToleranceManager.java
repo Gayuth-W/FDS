@@ -75,4 +75,54 @@ public class FaultToleranceManager {
         }
     }
 
+    private void monitorFailures() {
+        while (running) {
+            try {
+                Thread.sleep(Duration.ofSeconds(HEARTBEAT_INTERVAL_SEC));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            double now = now();
+            Map<String, Double> lastSeen = registry.liveNodesSnapshot();
+
+            for (String node : getAllNodes()) {
+                if (node.equals(nodeId)) {
+                    continue;
+                }
+                double lastSeenTime = lastSeen.getOrDefault(node, 0.0);
+                double sinceSeen = now - lastSeenTime;
+                NodeStatus current = nodeStatus.getOrDefault(node, NodeStatus.HEALTHY);
+
+                if (sinceSeen <= SUSPECT_TIMEOUT) {
+                    if (current != NodeStatus.HEALTHY) {
+                        if (current == NodeStatus.FAILED) {
+                            log.info("[FAULT] Node {} is BACK ONLINE and RECOVERING", node);
+                            nodeStatus.put(node, NodeStatus.RECOVERING);
+                            String recovering = node;
+                            Thread.ofVirtual().name("ft-recover-" + recovering).start(() -> runAsyncRecovery(recovering));
+                        } else if (current == NodeStatus.SUSPECTED) {
+                            nodeStatus.put(node, NodeStatus.HEALTHY);
+                            log.info("[FAULT] Node {} recovered from SUSPECTED to HEALTHY", node);
+                        }
+                    }
+                } else if (sinceSeen <= FAILURE_TIMEOUT) {
+                    if (current == NodeStatus.HEALTHY) {
+                        nodeStatus.put(node, NodeStatus.SUSPECTED);
+                        log.warn("[FAULT] Node {} is SUSPECTED (missed heartbeat)", node);
+                    }
+                } else {
+                    if (current == NodeStatus.SUSPECTED || current == NodeStatus.HEALTHY) {
+                        nodeStatus.put(node, NodeStatus.FAILED);
+                        log.error("[FAULT] Node {} has FAILED", node);
+                        Map<String, Object> fileMap = getFileMap();
+                        String failed = node;
+                        Thread.ofVirtual().name("ft-fail-" + failed)
+                                .start(() -> recovery.handleNodeFailure(failed, fileMap));
+                    }
+                }
+            }
+        }
+    }
 }
