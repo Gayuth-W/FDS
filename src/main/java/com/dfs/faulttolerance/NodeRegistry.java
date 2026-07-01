@@ -94,4 +94,13 @@ public class NodeRegistry {
             lock.unlock();
         }
     }    
+
+    public NodeStatus getNodeStatus(String node) {
+        lock.lock();
+        try {
+            return nodeStatus.getOrDefault(node, NodeStatus.HEALTHY);
+        } finally {
+            lock.unlock();
+        }
+    }    
 }
