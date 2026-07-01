@@ -125,4 +125,11 @@ public class FaultToleranceManager {
             }
         }
     }
+
+    private void runAsyncRecovery(String node) {
+        Map<String, Object> fileMap = getFileMap();
+        recovery.handleNodeRecovery(node, fileMap);
+        nodeStatus.put(node, NodeStatus.HEALTHY);
+        log.info("[FAULT] Node {} fully synced and state is now HEALTHY", node);
+    }    
 }
