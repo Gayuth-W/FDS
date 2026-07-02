@@ -141,9 +141,74 @@ public class ElectionManager {
         }
     }
 
+    private VoteResult requestVote(String peerId) {
+        String peerUrl = config.urlFor(peerId);
+        if (peerUrl == null) {
+            return new VoteResult(0, false);
+        }
 
+        int lastLogIndex = raft.lastLogIndex();
+        int lastLogTerm = raft.lastLogTerm();
 
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("term", raft.getCurrentTerm());
+        body.put("candidate_id", raft.getNodeId());
+        body.put("last_log_index", lastLogIndex);
+        body.put("last_log_term", lastLogTerm);
 
+        return rpc.postJson(peerUrl + "/raft/vote", body, VOTE_TIMEOUT)
+                .map(node -> new VoteResult(node.path("term").asInt(0), node.path("vote_granted").asBoolean(false)))
+                .orElse(new VoteResult(0, false));
+    }
+
+    /**
+     * Handle an incoming RequestVote RPC. Acquires the Raft lock for the whole
+     * decision so the term check, vote-grant and timeout reset are atomic.
+     */
+    public Map<String, Object> handleVoteRequest(int term, String candidateId,
+                                                 int lastLogIndex, int lastLogTerm) {
+        raft.lock.lock();
+        try {
+            if (term > raft.getCurrentTerm()) {
+                log.info("Term higher than current ({} > {}), stepping down.", term, raft.getCurrentTerm());
+                raft.becomeFollower(term, null);
+            }
+
+            boolean voteGranted = false;
+            String reason = "Unknown";
+
+            if (term < raft.getCurrentTerm()) {
+                reason = "Term out of date (" + term + " < " + raft.getCurrentTerm() + ")";
+            } else if (term == raft.getCurrentTerm()) {
+                if (raft.getVotedFor() != null && !raft.getVotedFor().equals(candidateId)) {
+                    reason = "Already voted for " + raft.getVotedFor();
+                } else {
+                    int lastLogTermSelf = raft.lastLogTerm();
+                    int lastLogIndexSelf = raft.lastLogIndex();
+                    if (lastLogTerm > lastLogTermSelf
+                            || (lastLogTerm == lastLogTermSelf && lastLogIndex >= lastLogIndexSelf)) {
+                        voteGranted = true;
+                        raft.setVotedFor(candidateId);
+                        raft.resetElectionTimeout();
+                        log.info("{} voted for {} (term {})", raft.getNodeId(), candidateId, term);
+                    } else {
+                        reason = "Candidate log not up to date";
+                    }
+                }
+            }
+
+            if (!voteGranted) {
+                log.info("{} denied vote to {}: {}", raft.getNodeId(), candidateId, reason);
+            }
+
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("term", raft.getCurrentTerm());
+            resp.put("vote_granted", voteGranted);
+            return resp;
+        } finally {
+            raft.lock.unlock();
+        }
+    }
 
     /** Result of a RequestVote RPC. */
     public record VoteResult(int term, boolean voteGranted) {
