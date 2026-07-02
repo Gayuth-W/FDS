@@ -1,12 +1,14 @@
 package com.dfs.consensus;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.dfs.model.LogEntry;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -77,6 +79,18 @@ public class ConsensusService {
         electionManager.startElection();
         String leader = getCurrentLeader();
         return leader != null ? leader : raft.getNodeId();
+    }
+
+    public Map<String, Object> handleVoteRequest(int term, String candidateId,
+                                                 int lastLogIndex, int lastLogTerm) {
+        return electionManager.handleVoteRequest(term, candidateId, lastLogIndex, lastLogTerm);
+    }
+
+    public Map<String, Object> handleAppendEntries(int term, String leaderId,
+                                                   int prevLogIndex, int prevLogTerm,
+                                                   List<JsonNode> entries, int leaderCommit) {
+        return replicationManager.handleAppendEntries(term, leaderId, prevLogIndex, prevLogTerm,
+                entries, leaderCommit);
     }
 
 
