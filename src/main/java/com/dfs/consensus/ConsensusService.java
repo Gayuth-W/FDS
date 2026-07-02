@@ -1,8 +1,12 @@
 package com.dfs.consensus;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import com.dfs.model.LogEntry;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -51,6 +55,18 @@ public class ConsensusService {
 
     public String getCurrentLeader() {
         return raft.getCurrentLeader();
+    }
+
+    public boolean replicateLog(LogEntry entry) {
+        return replicationManager.replicateLog(entry);
+    }
+
+    public LogEntry getLogEntry(int index) {
+        List<LogEntry> entries = raft.getLogEntries();
+        if (index < 0 || index >= entries.size()) {
+            return null;
+        }
+        return entries.get(index);
     }
 
 }
