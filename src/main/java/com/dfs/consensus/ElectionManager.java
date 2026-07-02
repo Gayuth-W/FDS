@@ -62,4 +62,15 @@ public class ElectionManager {
         }
     }
 
+
+
+
+
+
+
+
+
+    /** Result of a RequestVote RPC. */
+    public record VoteResult(int term, boolean voteGranted) {
+    }
 }
