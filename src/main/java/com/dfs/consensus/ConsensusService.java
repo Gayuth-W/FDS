@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.dfs.model.LogEntry;
+import com.dfs.model.RaftState;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.annotation.PostConstruct;
@@ -93,5 +94,12 @@ public class ConsensusService {
                 entries, leaderCommit);
     }
 
+    /** Direct access for status/metrics endpoints. */
+    public RaftNode raft() {
+        return raft;
+    }
 
+    public boolean isLeader() {
+        return raft.getState() == RaftState.LEADER;
+    }
 }
