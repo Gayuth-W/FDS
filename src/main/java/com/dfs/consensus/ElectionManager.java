@@ -62,7 +62,33 @@ public class ElectionManager {
         }
     }
 
+    private void monitorLoop() {
+        while (running) {
+            try {
+                Thread.sleep(100);
 
+                if (!electionInProgress.get()
+                        && raft.getState() != RaftState.LEADER
+                        && raft.shouldStartElection()) {
+                    log.info("ELECTION TRIGGERED for {}. Applying randomized backoff...", raft.getNodeId());
+                    // Slight randomization before sending votes to avoid simultaneous candidacies.
+                    Thread.sleep((long) (ThreadLocalRandom.current().nextDouble(0.05, 0.15) * 1000));
+                    executor.submit(this::startElection);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                log.error("Election loop error on {}: {}", raft.getNodeId(), e.toString());
+                try {
+                    Thread.sleep(1000); // backoff
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
 
 
 
