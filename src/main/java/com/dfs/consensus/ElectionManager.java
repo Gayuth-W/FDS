@@ -90,7 +90,56 @@ public class ElectionManager {
         }
     }
 
+    public void startElection() {
+        if (!electionInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            raft.becomeCandidate();
+            int currentTerm = raft.getCurrentTerm();
+            log.info("Node {} starting election for term {}", raft.getNodeId(), currentTerm);
 
+            // Request votes from all peers in parallel.
+            List<String> peers = raft.getPeerIds();
+            List<Future<VoteResult>> futures = peers.stream()
+                    .map(peer -> executor.submit(() -> requestVote(peer)))
+                    .toList();
+
+            if (raft.getState() != RaftState.CANDIDATE) {
+                return;
+            }
+
+            int votes = 1; // self vote
+            for (Future<VoteResult> f : futures) {
+                try {
+                    VoteResult result = f.get();
+                    if (result.term() > currentTerm) {
+                        raft.becomeFollower(result.term(), null);
+                        return;
+                    }
+                    if (result.voteGranted()) {
+                        votes++;
+                    }
+                } catch (Exception e) {
+                    log.error("Vote request failed: {}", e.toString());
+                }
+            }
+
+            int totalNodes = peers.size() + 1;
+            int majority = totalNodes / 2 + 1;
+            log.info("Node {} received {}/{} votes", raft.getNodeId(), votes, majority);
+
+            if (votes >= majority && raft.getState() == RaftState.CANDIDATE) {
+                raft.becomeLeader();
+                raft.resetElectionTimeout();
+                log.info("Node {} is now LEADER for term {}", raft.getNodeId(), raft.getCurrentTerm());
+            } else {
+                log.info("Node {} failed to win election (votes={}/{})", raft.getNodeId(), votes, majority);
+            }
+        } finally {
+            electionInProgress.set(false);
+        }
+    }
 
 
 
