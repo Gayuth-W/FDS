@@ -73,5 +73,11 @@ public class ConsensusService {
         raft.registerCommitCallback(cb);
     }
 
+    public String startElection() {
+        electionManager.startElection();
+        String leader = getCurrentLeader();
+        return leader != null ? leader : raft.getNodeId();
+    }
+
 
 }
