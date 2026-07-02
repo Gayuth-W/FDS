@@ -49,4 +49,8 @@ public class ConsensusService {
         log.info("Raft shutdown complete");
     }
 
+    public String getCurrentLeader() {
+        return raft.getCurrentLeader();
+    }
+
 }
