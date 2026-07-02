@@ -69,4 +69,9 @@ public class ConsensusService {
         return entries.get(index);
     }
 
+    public void registerCommitCallback(CommitCallback cb) {
+        raft.registerCommitCallback(cb);
+    }
+
+
 }
