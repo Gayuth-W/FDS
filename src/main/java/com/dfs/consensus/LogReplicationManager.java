@@ -167,6 +167,31 @@ public class LogReplicationManager {
         return handleAppendResponse(peerId, result.path("success").asBoolean(false));
     }
 
+    //Leader processes follower reply
+    private boolean handleAppendResponse(String peerId, boolean success) {
+        raft.lock.lock();
+        try {
+            if (raft.getState() != RaftState.LEADER) {
+                return false;
+            }
+            if (success) {
+                int logSize = raft.getLogEntries().size();
+                raft.getMatchIndex().put(peerId, logSize);
+                raft.getNextIndex().put(peerId, logSize + 1);
+                boolean advanced = raft.updateCommitIndex();
+                if (advanced) {
+                    // Force an immediate heartbeat to propagate the new commit index.
+                    executor.submit(this::sendHeartbeats);
+                }
+            } else {
+                int oldNext = raft.getNextIndex().getOrDefault(peerId, 1);
+                raft.getNextIndex().put(peerId, Math.max(1, oldNext - 1));
+            }
+            return success;
+        } finally {
+            raft.lock.unlock();
+        }
+    }
 
     /** Handle an incoming AppendEntries RPC from the leader (follower side). */
     public Map<String, Object> handleAppendEntries(int term, String leaderId,
