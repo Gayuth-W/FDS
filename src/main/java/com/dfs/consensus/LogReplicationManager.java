@@ -1,7 +1,12 @@
 package com.dfs.consensus;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +15,9 @@ import org.springframework.stereotype.Component;
 
 import com.dfs.config.ClusterConfig;
 import com.dfs.config.RpcClient;
+import com.dfs.model.LogEntry;
+import com.dfs.model.RaftState;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -58,6 +66,37 @@ public class LogReplicationManager {
         this.executor = executor;
     }
 
+    //Starts the heartbeat thread
+    public void start() {
+        running = true;
+        heartbeatThread = Thread.ofVirtual().name("raft-heartbeat-" + raft.getNodeId()).start(this::heartbeatLoop);
+        log.info("Log replication heartbeats started for {}", raft.getNodeId());
+    }
+
+    public void stop() {
+        running = false;
+        if (heartbeatThread != null) {
+            heartbeatThread.interrupt();
+        }
+    }
+
+    //Runs forever while node is active
+    private void heartbeatLoop() {
+        while (running) {
+            try {
+                Thread.sleep(50);
+                if (raft.getState() != RaftState.LEADER) {
+                    continue;
+                }
+                sendHeartbeats();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                log.debug("Heartbeat loop error: {}", e.toString());
+            }
+        }
+    }
 
     private static double mono() {
         return System.nanoTime() / 1_000_000_000.0;
