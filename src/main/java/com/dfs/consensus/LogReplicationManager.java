@@ -98,6 +98,29 @@ public class LogReplicationManager {
         }
     }
 
+    //Gets all peers
+    private void sendHeartbeats() {
+        List<String> peers;
+        raft.lock.lock();
+        try {
+            peers = new ArrayList<>(raft.getPeerIds());
+        } finally {
+            raft.lock.unlock();
+        }
+
+        List<Future<?>> futures = new ArrayList<>();
+        for (String peer : peers) {
+            futures.add(executor.submit(() -> appendEntries(peer, true)));
+        }
+        for (Future<?> f : futures) {
+            try {
+                f.get();
+            } catch (Exception ignored) {
+                // best-effort heartbeat
+            }
+        }
+    }
+
     private static double mono() {
         return System.nanoTime() / 1_000_000_000.0;
     }
