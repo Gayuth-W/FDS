@@ -121,6 +121,44 @@ public class LogReplicationManager {
         }
     }
 
+    /** Replicate a log entry to followers and wait for it to commit. */
+    public boolean replicateLog(LogEntry entry) {
+        log.info("replicate_log: starting for entry {}", entry.getIndex());
+
+        if (!raft.appendEntry(entry)) {
+            log.error("Failed to append entry locally");
+            return false;
+        }
+        log.info("Entry {} appended locally", entry.getIndex());
+
+        sendHeartbeats();
+
+        double start = mono();
+        while (true) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+
+            raft.lock.lock();
+            try {
+                if (entry.getIndex() <= raft.getCommitIndex()) {
+                    log.info("Entry {} committed!", entry.getIndex());
+                    return true;
+                }
+            } finally {
+                raft.lock.unlock();
+            }
+
+            if (mono() - start > COMMIT_TIMEOUT_SECONDS) {
+                log.error("Timeout waiting for entry {} to commit", entry.getIndex());
+                return false;
+            }
+        }
+    }
+
     /** Send an AppendEntries RPC to a single peer. */
     private boolean appendEntries(String peerId, boolean isHeartbeat) {
         String peerUrl = config.urlFor(peerId);
