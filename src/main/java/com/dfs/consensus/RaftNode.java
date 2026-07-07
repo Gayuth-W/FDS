@@ -62,4 +62,67 @@ public class RaftNode {
 
     /** Single lock guarding all Raft state. Exposed so managers can run compound critical sections. */
     public final ReentrantLock lock = new ReentrantLock();
+
+    // ----- Accessors used by managers / status endpoints -----
+
+    public String getNodeId() {
+        return nodeId;
+    }
+
+    public List<String> getPeerIds() {
+        return peerIds;
+    }
+
+    public int getCurrentTerm() {
+        return currentTerm;
+    }
+
+    public void setCurrentTerm(int currentTerm) {
+        this.currentTerm = currentTerm;
+    }
+
+    public String getVotedFor() {
+        return votedFor;
+    }
+
+    public void setVotedFor(String votedFor) {
+        this.votedFor = votedFor;
+    }
+
+    public List<LogEntry> getLogEntries() {
+        return logEntries;
+    }
+
+    public int getCommitIndex() {
+        return commitIndex;
+    }
+
+    public void setCommitIndex(int commitIndex) {
+        this.commitIndex = commitIndex;
+    }
+
+    public RaftState getState() {
+        return state;
+    }
+
+    public String getLeaderId() {
+        return leaderId;
+    }
+
+    public Map<String, Integer> getNextIndex() {
+        return nextIndex;
+    }
+
+    public Map<String, Integer> getMatchIndex() {
+        return matchIndex;
+    }
+
+    /** Term of the last log entry (0 if empty). */
+    public int lastLogTerm() {
+        return logEntries.isEmpty() ? 0 : logEntries.get(logEntries.size() - 1).getTerm();
+    }
+
+    public int lastLogIndex() {
+        return logEntries.size();
+    }
 }
