@@ -134,6 +134,71 @@ public class RaftNode {
         }
     }
 
+    // ----- Leader-only log operations -----
+
+    /** Append an entry to the local log (leader only). */
+    public boolean appendEntry(LogEntry entry) {
+        lock.lock();
+        try {
+            if (state != RaftState.LEADER) {
+                return false;
+            }
+            entry.setTerm(currentTerm);
+            entry.setIndex(logEntries.size() + 1);
+            logEntries.add(entry);
+            log.info("[RAFT] Leader appended entry {}", entry.getIndex());
+
+            if (peerIds.isEmpty()) {
+                commitIndex = logEntries.size();
+                log.info("[RAFT] No peers, immediately committed up to index {}", commitIndex);
+                applyCommittedEntries();
+            }
+            return true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Advance the commit index when a majority has replicated.
+     * Returns true if the commit index advanced.
+     */
+    public boolean updateCommitIndex() {
+        lock.lock();
+        try {
+            if (state != RaftState.LEADER) {
+                return false;
+            }
+
+            if (peerIds.isEmpty()) {
+                if (logEntries.size() > commitIndex) {
+                    commitIndex = logEntries.size();
+                    log.info("[RAFT] No peers, committed up to index {}", commitIndex);
+                }
+            }
+
+            List<Integer> matches = new ArrayList<>(matchIndex.values());
+            matches.add(logEntries.size());
+            matches.sort((a, b) -> Integer.compare(b, a)); // descending
+            int majorityIndex = matches.get(matches.size() / 2);
+
+            log.info("Update commit: matches={}, majority_index={}, current_commit={}",
+                    matches, majorityIndex, commitIndex);
+
+            if (majorityIndex > commitIndex) {
+                if (majorityIndex > 0 && logEntries.get(majorityIndex - 1).getTerm() == currentTerm) {
+                    commitIndex = majorityIndex;
+                    log.info("[RAFT] COMMIT UPDATED to index {}", commitIndex);
+                    applyCommittedEntries();
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Apply newly committed entries to the state machine via callbacks. Caller may or may not hold the lock. */
     public void applyCommittedEntries() {
         lock.lock();
