@@ -84,6 +84,26 @@ public class RaftNode {
         return System.nanoTime() / 1_000_000_000.0;
     }
 
+    // ----- State transitions (acquire lock; reentrant-safe) -----
+
+    public void becomeFollower(int term, String newLeaderId) {
+        lock.lock();
+        try {
+            // Only reset votedFor when the term strictly advances.
+            if (term > currentTerm) {
+                votedFor = null;
+            }
+            state = RaftState.FOLLOWER;
+            currentTerm = Math.max(currentTerm, term);
+            leaderId = newLeaderId;
+            lastHeartbeat = mono();
+            electionTimeout = ThreadLocalRandom.current().nextDouble(300, 600) / 1000.0;
+            log.info("[RAFT] Node {} became FOLLOWER (term {}, leader {})", nodeId, currentTerm, newLeaderId);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     // ----- Queries / helpers -----
 
     public String getCurrentLeader() {
