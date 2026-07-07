@@ -63,6 +63,26 @@ public class RaftNode {
     /** Single lock guarding all Raft state. Exposed so managers can run compound critical sections. */
     public final ReentrantLock lock = new ReentrantLock();
 
+    public RaftNode(ClusterConfig config) {
+        this.config = config;
+    }
+
+    @PostConstruct
+    void init() {
+        this.nodeId = config.getNodeId();
+        this.peerIds = new ArrayList<>(config.getOtherNodes().keySet());
+
+        // Randomized initial timeout in [0.3, 0.6]s to prevent split votes.
+        this.electionTimeout = ThreadLocalRandom.current().nextDouble(300, 600) / 1000.0;
+        // Initial jitter so nodes started together don't time out simultaneously.
+        this.lastHeartbeat = mono() - ThreadLocalRandom.current().nextDouble(0, 0.5);
+
+        log.info("[RAFT] Node {} initialized with peers {}", nodeId, peerIds);
+    }
+
+    private static double mono() {
+        return System.nanoTime() / 1_000_000_000.0;
+    }
 
     // ----- Queries / helpers -----
 
