@@ -104,6 +104,20 @@ public class RaftNode {
         }
     }
 
+    public void becomeCandidate() {
+        lock.lock();
+        try {
+            state = RaftState.CANDIDATE;
+            currentTerm += 1;
+            votedFor = nodeId;
+            lastHeartbeat = mono();
+            electionTimeout = ThreadLocalRandom.current().nextDouble(300, 600) / 1000.0;
+            log.info("[RAFT] Node {} became CANDIDATE for term {}", nodeId, currentTerm);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     // ----- Queries / helpers -----
 
     public String getCurrentLeader() {
