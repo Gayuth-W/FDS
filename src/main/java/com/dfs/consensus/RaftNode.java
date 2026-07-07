@@ -63,6 +63,55 @@ public class RaftNode {
     /** Single lock guarding all Raft state. Exposed so managers can run compound critical sections. */
     public final ReentrantLock lock = new ReentrantLock();
 
+
+    // ----- Queries / helpers -----
+
+    public String getCurrentLeader() {
+        lock.lock();
+        try {
+            return state == RaftState.LEADER ? nodeId : leaderId;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean shouldStartElection() {
+        lock.lock();
+        try {
+            if (state == RaftState.LEADER) {
+                return false;
+            }
+            double elapsed = mono() - lastHeartbeat;
+            return elapsed > electionTimeout;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void resetElectionTimeout() {
+        lock.lock();
+        try {
+            lastHeartbeat = mono();
+            // Stable range after first contact: [1.5, 3.0]s.
+            electionTimeout = ThreadLocalRandom.current().nextDouble(1500, 3000) / 1000.0;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void registerCommitCallback(CommitCallback cb) {
+        lock.lock();
+        try {
+            commitCallbacks.add(cb);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void stop() {
+        log.info("Raft node {} stopping", nodeId);
+    }
+
     // ----- Accessors used by managers / status endpoints -----
 
     public String getNodeId() {
