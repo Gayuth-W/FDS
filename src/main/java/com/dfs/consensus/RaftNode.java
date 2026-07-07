@@ -118,6 +118,22 @@ public class RaftNode {
         }
     }
 
+    public void becomeLeader() {
+        lock.lock();
+        try {
+            state = RaftState.LEADER;
+            leaderId = nodeId;
+            int lastLogIndex = logEntries.size();
+            for (String peer : peerIds) {
+                nextIndex.put(peer, lastLogIndex + 1);
+                matchIndex.put(peer, 0);
+            }
+            log.info("[RAFT] Node {} became LEADER for term {}", nodeId, currentTerm);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     // ----- Queries / helpers -----
 
     public String getCurrentLeader() {
