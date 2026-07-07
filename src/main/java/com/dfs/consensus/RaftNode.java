@@ -134,6 +134,27 @@ public class RaftNode {
         }
     }
 
+    /** Apply newly committed entries to the state machine via callbacks. Caller may or may not hold the lock. */
+    public void applyCommittedEntries() {
+        lock.lock();
+        try {
+            while (lastApplied < commitIndex) {
+                lastApplied += 1;
+                LogEntry entry = logEntries.get(lastApplied - 1);
+                log.info("[RAFT] [NODE {}] Applying committed entry {}: {}", nodeId, lastApplied, entry.getOp());
+                for (CommitCallback cb : commitCallbacks) {
+                    try {
+                        cb.onCommit(entry);
+                    } catch (Exception e) {
+                        log.error("Error in Raft commit callback: {}", e.toString());
+                    }
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
     // ----- Queries / helpers -----
 
     public String getCurrentLeader() {
