@@ -65,6 +65,19 @@ public class ReplicationManager {
         }
     }
 
+    /** Queue a binary block for replication to the given targets. */
+    public void replicateBlock(String blockId, byte[] data, List<String> targetNodes, long lamportTs) {
+        Task t = new Task();
+        t.type = "BLOCK";
+        t.blockId = blockId;
+        t.data = data;
+        t.targets = targetNodes;
+        t.attempts = 0;
+        t.lamportTs = lamportTs;
+        queue.offer(t);
+        log.info("[REPLICATION] Queued block replication for {} to {} nodes", blockId, targetNodes.size());
+    }
+
     private Map<String, Boolean> replicateToNodes(Task task) {
         Map<String, Boolean> results = new LinkedHashMap<>();
         for (String peerId : task.targets) {
