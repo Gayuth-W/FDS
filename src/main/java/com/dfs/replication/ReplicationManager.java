@@ -65,6 +65,26 @@ public class ReplicationManager {
         }
     }
 
+    private Map<String, Boolean> replicateMetaToNodes(Task task) {
+        Map<String, Boolean> results = new LinkedHashMap<>();
+        for (String peerId : task.targets) {
+            String peerUrl = config.urlFor(peerId);
+            if (peerUrl == null) {
+                continue;
+            }
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("filename", task.filename);
+            body.put("manifest", task.manifest);
+            body.put("lamport_ts", task.lamportTs);
+            boolean ok = rpc.postOk(peerUrl + "/replicate_meta", body, RPC_TIMEOUT);
+            results.put(peerId, ok);
+            if (ok) {
+                log.info("[REPLICATION] Mirrored metadata {} to {}", task.filename, peerId);
+            }
+        }
+        return results;
+    }
+
     /** Internal replication task (mutable so attempts can be incremented on retry). */
     private static final class Task {
         String type;
