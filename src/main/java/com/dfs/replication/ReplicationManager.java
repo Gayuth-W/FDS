@@ -91,6 +91,52 @@ public class ReplicationManager {
         log.info("[REPLICATION] Queued metadata replication for {} to {} nodes", filename, targetNodes.size());
     }
 
+    private void processQueue() {
+        while (running) {
+            Task task;
+            try {
+                task = queue.take();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            try {
+                task.attempts += 1;
+
+                Map<String, Boolean> results = "METADATA".equals(task.type)
+                        ? replicateMetaToNodes(task)
+                        : replicateToNodes(task);
+
+                int ok = 0;
+                int bad = 0;
+                for (boolean v : results.values()) {
+                    if (v) ok++; else bad++;
+                }
+
+                totalReplications.incrementAndGet();
+                successful.addAndGet(ok);
+                failed.addAndGet(bad);
+
+                if (bad > 0 && task.attempts < 3) {
+                    Thread.sleep(2000);
+                    queue.offer(task);
+                    retries.incrementAndGet();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                log.error("Error in replication processor: {}", e.toString());
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
     private Map<String, Boolean> replicateToNodes(Task task) {
         Map<String, Boolean> results = new LinkedHashMap<>();
         for (String peerId : task.targets) {
