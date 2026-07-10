@@ -1,6 +1,7 @@
 package com.dfs.replication;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import com.dfs.config.ClusterConfig;
 import com.dfs.config.RpcClient;
+import com.dfs.util.HashUtil;
 
 /**
  * Handles asynchronous replication of blocks and metadata to other nodes.
@@ -48,6 +50,19 @@ public class ReplicationManager {
         this.rpc = rpc;
         this.nodeId = config.getNodeId();
         log.info("[REPLICATION] ReplicationManager initialized for {}", nodeId);
+    }
+
+    public void start() {
+        running = true;
+        worker = Thread.ofVirtual().name("replication-" + nodeId).start(this::processQueue);
+        log.info("[REPLICATION] Replication processor started");
+    }
+
+    public void stop() {
+        running = false;
+        if (worker != null) {
+            worker.interrupt();
+        }
     }
 
     /** Internal replication task (mutable so attempts can be incremented on retry). */
