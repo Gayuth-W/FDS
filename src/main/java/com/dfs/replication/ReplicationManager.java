@@ -1,20 +1,20 @@
 package com.dfs.replication;
 
+import com.dfs.config.ClusterConfig;
+import com.dfs.config.RpcClient;
+import com.dfs.util.HashUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
-import com.dfs.config.ClusterConfig;
-import com.dfs.config.RpcClient;
-import com.dfs.util.HashUtil;
 
 /**
  * Handles asynchronous replication of blocks and metadata to other nodes.
@@ -176,6 +176,16 @@ public class ReplicationManager {
             }
         }
         return results;
+    }
+
+    /** Snapshot of replication statistics (drives the dashboard). */
+    public Map<String, Object> getStats() {
+        Map<String, Object> stats = new ConcurrentHashMap<>();
+        stats.put("total_replications", totalReplications.get());
+        stats.put("successful", successful.get());
+        stats.put("failed", failed.get());
+        stats.put("retries", retries.get());
+        return stats;
     }
 
     /** Internal replication task (mutable so attempts can be incremented on retry). */
