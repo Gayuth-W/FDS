@@ -78,6 +78,19 @@ public class ReplicationManager {
         log.info("[REPLICATION] Queued block replication for {} to {} nodes", blockId, targetNodes.size());
     }
 
+    /** Queue a metadata manifest for replication to the given targets. */
+    public void replicateMetadata(String filename, Map<String, Object> manifest, List<String> targetNodes, long lamportTs) {
+        Task t = new Task();
+        t.type = "METADATA";
+        t.filename = filename;
+        t.manifest = manifest;
+        t.targets = targetNodes;
+        t.attempts = 0;
+        t.lamportTs = lamportTs;
+        queue.offer(t);
+        log.info("[REPLICATION] Queued metadata replication for {} to {} nodes", filename, targetNodes.size());
+    }
+
     private Map<String, Boolean> replicateToNodes(Task task) {
         Map<String, Boolean> results = new LinkedHashMap<>();
         for (String peerId : task.targets) {
