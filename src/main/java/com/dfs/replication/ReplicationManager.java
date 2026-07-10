@@ -65,6 +65,27 @@ public class ReplicationManager {
         }
     }
 
+    private Map<String, Boolean> replicateToNodes(Task task) {
+        Map<String, Boolean> results = new LinkedHashMap<>();
+        for (String peerId : task.targets) {
+            String peerUrl = config.urlFor(peerId);
+            if (peerUrl == null) {
+                continue;
+            }
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("block_id", task.blockId);
+            body.put("data", HashUtil.toHex(task.data));
+            body.put("source_node", nodeId);
+            body.put("lamport_ts", task.lamportTs);
+            boolean ok = rpc.postOk(peerUrl + "/replicate", body, RPC_TIMEOUT);
+            results.put(peerId, ok);
+            if (ok) {
+                log.info("[REPLICATION] Replicated block {} to {}", task.blockId, peerId);
+            }
+        }
+        return results;
+    }
+
     private Map<String, Boolean> replicateMetaToNodes(Task task) {
         Map<String, Boolean> results = new LinkedHashMap<>();
         for (String peerId : task.targets) {
