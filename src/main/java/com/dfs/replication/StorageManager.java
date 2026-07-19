@@ -117,6 +117,46 @@ public class StorageManager {
         return Files.readAllBytes(path);
     }
 
+    /**
+     * Store metadata for a key with deterministic LWW convergence.
+     * Returns false if the incoming metadata is logically stale (or loses the
+     * node-id tie-breaker) and was therefore ignored.
+     */
+    public synchronized boolean saveMetadata(String key, Map<String, Object> metadata) throws IOException {
+        Path path = blocksDir.resolve(key + ".meta");
+        Files.createDirectories(path.getParent());
+
+        if (Files.exists(path)) {
+            Map<String, Object> existing = getMetadata(key);
+            if (existing != null) {
+                double existTs = asDouble(existing.get("lamport_ts"), 0);
+                double newTs = asDouble(metadata.get("lamport_ts"), 0);
+
+                // Rule A: ignore chronologically older vectors
+                if (newTs < existTs) {
+                    log.debug("[CONSISTENCY] Ignored logically stale metadata for {} (Lamport {} < {})",
+                            key, newTs, existTs);
+                    return false;
+                }
+                // Rule B: deterministic tie-breaker via node-id supremacy
+                else if (newTs == existTs) {
+                    String existNode = String.valueOf(existing.getOrDefault("source_node", ""));
+                    String newNode = String.valueOf(metadata.getOrDefault("source_node", ""));
+                    if (!newNode.equals(existNode) && newNode.compareTo(existNode) < 0) {
+                        log.debug("[CONSISTENCY] Tie-breaker rejected {} (Node {} < Node {})",
+                                key, newNode, existNode);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        byte[] json = mapper.writeValueAsBytes(metadata);
+        Files.write(path, json);
+        log.info("Saved manifest for {}", key);
+        return true;
+    }
+
     /** Retrieve metadata for a key, or null. */
     @SuppressWarnings("unchecked")
     public Map<String, Object> getMetadata(String key) throws IOException {
