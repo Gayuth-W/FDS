@@ -49,6 +49,19 @@ public class StorageManager {
         this.mapper = mapper;
     }
 
+    @PostConstruct
+    void init() {
+        this.blocksDir = config.getBlocksDir().toAbsolutePath();
+        this.walFile = blocksDir.resolve("storage.wal");
+        try {
+            Files.createDirectories(blocksDir);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not create blocks dir " + blocksDir, e);
+        }
+        log.info("Storage IRONCLAD initialized at {}", blocksDir);
+        recoverFromWal();
+    }
+
     private void recoverFromWal() {
         try {
             if (Files.exists(walFile)) {
