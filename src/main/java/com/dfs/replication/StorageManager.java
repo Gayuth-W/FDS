@@ -117,6 +117,17 @@ public class StorageManager {
         return Files.readAllBytes(path);
     }
 
+    /** Retrieve metadata for a key, or null. */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getMetadata(String key) throws IOException {
+        Path path = blocksDir.resolve(key + ".meta");
+        if (!Files.exists(path)) {
+            return null;
+        }
+        byte[] bytes = Files.readAllBytes(path);
+        return mapper.readValue(bytes, Map.class);
+    }
+
     /** List all locally stored block ids (.dat), excluding manifest_ entries. */
     public List<String> listBlocks() throws IOException {
         List<String> blocks = new ArrayList<>();
