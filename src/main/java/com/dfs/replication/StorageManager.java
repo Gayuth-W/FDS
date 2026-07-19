@@ -117,6 +117,23 @@ public class StorageManager {
         return Files.readAllBytes(path);
     }
 
+    /** List all locally stored block ids (.dat), excluding manifest_ entries. */
+    public List<String> listBlocks() throws IOException {
+        List<String> blocks = new ArrayList<>();
+        if (!Files.exists(blocksDir)) {
+            return blocks;
+        }
+        try (var stream = Files.list(blocksDir)) {
+            stream.forEach(p -> {
+                String name = p.getFileName().toString();
+                if (name.endsWith(".dat") && !name.startsWith("manifest_")) {
+                    blocks.add(name.substring(0, name.length() - 4));
+                }
+            });
+        }
+        return blocks;
+    }
+
     private static double asDouble(Object o, double def) {
         if (o instanceof Number n) {
             return n.doubleValue();
