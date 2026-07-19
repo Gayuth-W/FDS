@@ -60,4 +60,17 @@ public class Replicator {
         }
         return valid;
     }
+
+    public ReplicationResult replicateToNodes(WriteRequest req, List<String> nodeIds, int version) {
+        List<String> succeeded = new ArrayList<>();
+        List<String> failed = new ArrayList<>();
+        for (String nodeId : nodeIds) {
+            if (storageDataGateway.storeOnNode(nodeId, req)) {
+                succeeded.add(nodeId);
+            } else {
+                failed.add(nodeId);
+            }
+        }
+        return new ReplicationResult(nodeIds, succeeded, failed, succeeded.size());
+    }
 }
