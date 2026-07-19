@@ -134,6 +134,19 @@ public class StorageManager {
         return blocks;
     }
 
+    /** Delete a block from disk. */
+    public boolean deleteBlock(String blockId) throws IOException {
+        logWal("START_DELETE " + blockId);
+        Path path = blocksDir.resolve(blockId + ".dat");
+        if (Files.exists(path)) {
+            Files.delete(path);
+            logWal("COMMIT_DELETE " + blockId);
+            log.info("[STORAGE] Deleted block {}", blockId);
+            return true;
+        }
+        return false;
+    }
+
     private static double asDouble(Object o, double def) {
         if (o instanceof Number n) {
             return n.doubleValue();
