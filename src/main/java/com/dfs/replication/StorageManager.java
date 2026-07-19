@@ -168,6 +168,28 @@ public class StorageManager {
         return mapper.readValue(bytes, Map.class);
     }
 
+    /**
+     * Save a block with an integrity checksum and a monotonically increasing
+     * version.
+     */
+    public boolean writeWithChecksum(String blockId, byte[] data) throws IOException {
+        String checksum = HashUtil.calculateChecksum(data);
+        log.info("[CONSISTENCY] Calculated SHA256 checksum for block {}", blockId);
+
+        Map<String, Object> oldMeta = getMetadata(blockId);
+        int version = (oldMeta != null) ? (int) asDouble(oldMeta.get("version"), 0) + 1 : 1;
+
+        writeBlock(blockId, data);
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("checksum", checksum);
+        meta.put("size", data.length);
+        meta.put("created", HashUtil.now());
+        meta.put("version", version);
+        saveMetadata(blockId, meta);
+        return true;
+    }
+
     /** List all locally stored block ids (.dat), excluding manifest_ entries. */
     public List<String> listBlocks() throws IOException {
         List<String> blocks = new ArrayList<>();
