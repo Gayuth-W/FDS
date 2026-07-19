@@ -103,4 +103,9 @@ public class Replicator {
 
         return new WriteResult(true, newVersion, replication.succeededNodes(), leaderId);
     }
+
+    /** Default leader id used by the original when none is supplied. */
+    public WriteResult handleWrite(WriteRequest req) {
+        return handleWrite(req, "COORDINATOR_1");
+    }
 }
