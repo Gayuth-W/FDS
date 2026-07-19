@@ -87,6 +87,27 @@ public class StorageManager {
         }
     }
 
+    /** Save a block to disk with hardware sync and post-write verification. */
+    public boolean writeBlock(String blockId, byte[] data) throws IOException {
+        logWal("START_WRITE " + blockId);
+        Path path = blocksDir.resolve(blockId + ".dat");
+        Files.createDirectories(path.getParent());
+
+        try (FileOutputStream fos = new FileOutputStream(path.toFile())) {
+            fos.write(data);
+            fos.flush();
+            fos.getFD().sync(); // hardware sync
+        }
+        // Post-write verify
+        if (!Files.exists(path) || Files.size(path) != data.length) {
+            throw new IOException("Write verification failed for " + path);
+        }
+
+        logWal("COMMIT_WRITE " + blockId);
+        log.info("IRONCLAD: Wrote block {} ({} bytes) to {}", blockId, data.length, path);
+        return true;
+    }
+
     private static double asDouble(Object o, double def) {
         if (o instanceof Number n) {
             return n.doubleValue();
