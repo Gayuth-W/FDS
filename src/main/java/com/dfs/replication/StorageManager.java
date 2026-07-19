@@ -108,6 +108,15 @@ public class StorageManager {
         return true;
     }
 
+    /** Read a block from disk, or null if absent. */
+    public byte[] readBlock(String blockId) throws IOException {
+        Path path = blocksDir.resolve(blockId + ".dat");
+        if (!Files.exists(path)) {
+            return null;
+        }
+        return Files.readAllBytes(path);
+    }
+
     private static double asDouble(Object o, double def) {
         if (o instanceof Number n) {
             return n.doubleValue();
