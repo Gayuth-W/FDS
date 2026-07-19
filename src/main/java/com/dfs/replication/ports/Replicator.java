@@ -48,4 +48,16 @@ public class Replicator {
         this.quorum = quorum;
         this.conflicts = conflicts;
     }
+
+    public List<String> chooseValidReplicaNodes(String fileId, int requestedFactor) {
+        List<String> candidates = metadataRepo.chooseReplicaNodes(fileId, requestedFactor);
+        Set<String> live = new HashSet<>(nodeHealthGateway.listLiveNodes());
+        List<String> valid = new ArrayList<>();
+        for (String nodeId : candidates) {
+            if (live.contains(nodeId)) {
+                valid.add(nodeId);
+            }
+        }
+        return valid;
+    }
 }
