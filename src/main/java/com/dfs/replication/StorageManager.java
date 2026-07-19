@@ -198,6 +198,17 @@ public class StorageManager {
         return false;
     }
 
+    /** Delete metadata for a key. */
+    public boolean deleteMetadata(String key) throws IOException {
+        Path path = blocksDir.resolve(key + ".meta");
+        if (Files.exists(path)) {
+            Files.delete(path);
+            log.info("[STORAGE] Deleted metadata for {}", key);
+            return true;
+        }
+        return false;
+    }
+
     private static double asDouble(Object o, double def) {
         if (o instanceof Number n) {
             return n.doubleValue();
