@@ -73,4 +73,34 @@ public class Replicator {
         }
         return new ReplicationResult(nodeIds, succeeded, failed, succeeded.size());
     }
+
+    public WriteResult handleWrite(WriteRequest req, String leaderId) {
+        Optional<FileMetadata> currentMeta = metadataRepo.getFileMetadata(req.fileId());
+        int currentVersion = currentMeta.map(FileMetadata::version).orElse(0);
+        int newVersion = conflicts.nextVersionForWrite(currentVersion);
+
+        List<String> replicaNodes = chooseValidReplicaNodes(req.fileId(), 3);
+        if (replicaNodes.isEmpty()) {
+            return new WriteResult(false, currentVersion, List.of(), leaderId);
+        }
+
+        ReplicationResult replication = replicateToNodes(req, replicaNodes, newVersion);
+        int requiredAcks = quorum.writeQuorumRequired(ClusterConfig.REPLICATION_FACTOR);
+        boolean success = quorum.isWriteSuccessful(replication.ackCount(), requiredAcks);
+
+        if (!success) {
+            return new WriteResult(false, currentVersion, replication.succeededNodes(), leaderId);
+        }
+
+        FileMetadata updated = new FileMetadata(
+                req.fileId(),
+                req.filename(),
+                newVersion,
+                replication.succeededNodes().get(0),
+                replication.succeededNodes(),
+                replication.failedNodes().isEmpty() ? "READY" : "DEGRADED");
+        metadataRepo.upsertFileMetadata(updated);
+
+        return new WriteResult(true, newVersion, replication.succeededNodes(), leaderId);
+    }
 }
