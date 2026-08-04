@@ -30,7 +30,10 @@ public class ElectionManager {
 
     private static final Logger log = LoggerFactory.getLogger(ElectionManager.class);
 
-    private static final Duration VOTE_TIMEOUT = Duration.ofMillis(200);
+    // 200ms is too tight for the first container-to-container connection (TCP
+    // setup + a peer whose Tomcat is still warming). A down peer still fails fast
+    // (connection refused), so this only adds slack for slow-but-alive peers.
+    private static final Duration VOTE_TIMEOUT = Duration.ofMillis(800);
 
     private final RaftNode raft;
     private final RpcClient rpc;
@@ -65,14 +68,14 @@ public class ElectionManager {
     private void monitorLoop() {
         while (running) {
             try {
-                Thread.sleep(100);
+                Thread.sleep(30);
 
                 if (!electionInProgress.get()
                         && raft.getState() != RaftState.LEADER
                         && raft.shouldStartElection()) {
                     log.info("ELECTION TRIGGERED for {}. Applying randomized backoff...", raft.getNodeId());
-                    // Slight randomization before sending votes to avoid simultaneous candidacies.
-                    Thread.sleep((long) (ThreadLocalRandom.current().nextDouble(0.05, 0.15) * 1000));
+                    // Small randomized backoff before sending votes to avoid simultaneous candidacies.
+                    Thread.sleep((long) (ThreadLocalRandom.current().nextDouble(0.02, 0.08) * 1000));
                     executor.submit(this::startElection);
                 }
             } catch (InterruptedException e) {
