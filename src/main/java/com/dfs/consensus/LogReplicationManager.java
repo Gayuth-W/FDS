@@ -44,7 +44,7 @@ public class LogReplicationManager {
 
     private static final Logger log = LoggerFactory.getLogger(LogReplicationManager.class);
 
-    private static final Duration APPEND_TIMEOUT = Duration.ofMillis(200);
+    private static final Duration APPEND_TIMEOUT = Duration.ofMillis(500);
     private static final double COMMIT_TIMEOUT_SECONDS = 3.0;
 
     private final RaftNode raft;
