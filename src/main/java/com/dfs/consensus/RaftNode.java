@@ -72,10 +72,12 @@ public class RaftNode {
         this.nodeId = config.getNodeId();
         this.peerIds = new ArrayList<>(config.getOtherNodes().keySet());
 
-        // Randomized initial timeout in [0.3, 0.6]s to prevent split votes.
-        this.electionTimeout = ThreadLocalRandom.current().nextDouble(300, 600) / 1000.0;
-        // Initial jitter so nodes started together don't time out simultaneously.
-        this.lastHeartbeat = mono() - ThreadLocalRandom.current().nextDouble(0, 0.5);
+        // Wide, randomized initial timeout so the earliest node becomes candidate
+        // and wins before any other node's timer fires (RPCs are ~ms, the window
+        // is hundreds of ms), giving a decisive single-round first election.
+        this.electionTimeout = ThreadLocalRandom.current().nextDouble(150, 800) / 1000.0;
+        // Small initial jitter so nodes started together don't all fire at once.
+        this.lastHeartbeat = mono() - ThreadLocalRandom.current().nextDouble(0, 0.2);
 
         log.info("[RAFT] Node {} initialized with peers {}", nodeId, peerIds);
     }
@@ -248,8 +250,10 @@ public class RaftNode {
         lock.lock();
         try {
             lastHeartbeat = mono();
-            // Stable range after first contact: [1.5, 3.0]s.
-            electionTimeout = ThreadLocalRandom.current().nextDouble(1500, 3000) / 1000.0;
+            // Stable range after contact with a leader: [1.0, 2.0]s. Heartbeats
+            // arrive every ~50ms, so this tolerates many missed beats before a
+            // follower challenges, yet keeps failover after a real leader loss fast.
+            electionTimeout = ThreadLocalRandom.current().nextDouble(1000, 2000) / 1000.0;
         } finally {
             lock.unlock();
         }
