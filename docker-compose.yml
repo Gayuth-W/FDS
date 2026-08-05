@@ -63,7 +63,7 @@ services:
     volumes: ["node5-data:/app/data"]
 
   ui:
-    build: ./ui
+    build: ./frontend
     image: dfs-ui:latest
     container_name: dfs-ui
     ports: ["8501:80"]
