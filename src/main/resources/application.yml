@@ -15,6 +15,16 @@ spring:
 server:
   port: ${PORT:8001}
 
+# Observability: expose Prometheus scrape + health endpoints.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      node: ${NODE_ID:node1}
+
 logging:
   level:
     root: INFO
