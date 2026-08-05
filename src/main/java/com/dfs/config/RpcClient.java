@@ -114,6 +114,30 @@ public class RpcClient {
     }
 
     /**
+     * Proxy a GET to another node and return its status, content-type and body
+     * verbatim. Used to forward reads to the leader so every node serves
+     * linearizable reads regardless of which node the client hit.
+     */
+    public Optional<ProxyResponse> proxyGet(String url, Duration timeout) {
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(timeout)
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> resp = client.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            String contentType = resp.headers().firstValue("Content-Type").orElse("application/octet-stream");
+            return Optional.of(new ProxyResponse(resp.statusCode(), contentType, resp.body()));
+        } catch (Exception e) {
+            log.debug("proxyGet from {} failed: {}", url, e.toString());
+            return Optional.empty();
+        }
+    }
+
+    /** Verbatim response from a proxied GET. */
+    public record ProxyResponse(int status, String contentType, byte[] body) {
+    }
+
+    /**
      * POST a multipart/form-data file (single "file" part). Used during recovery
      * to re-upload a recovered file to a peer's /files endpoint.
      */
