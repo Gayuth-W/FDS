@@ -13,6 +13,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Startup wiring for a node. Port of the FastAPI lifespan startup block in
@@ -56,13 +58,30 @@ public class ClusterBootstrap implements ApplicationRunner {
         Files.createDirectories(config.getBlocksDir());
         Files.createDirectories(config.getCheckpointDir());
 
-        // Event-driven metadata replication: when a CREATE_FILE entry commits,
-        // persist its manifest locally (the "mirror sync" in the original).
+        // Event-driven metadata replication driven by the Raft commit callback,
+        // so every node applies committed operations identically:
+        //   CREATE_FILE -> persist the manifest locally
+        //   DELETE_FILE -> remove the file's blocks + manifest locally
         consensus.registerCommitCallback(entry -> {
-            if ("CREATE_FILE".equals(entry.getOp())) {
-                String filename = entry.getFileId();
+            String op = entry.getOp();
+            String filename = entry.getFileId();
+            if ("CREATE_FILE".equals(op)) {
                 storage.saveMetadata("manifest_" + filename, entry.getPayload());
                 log.info("[NODE {}] MIRROR SYNC: Saved metadata for {}", config.getNodeId(), filename);
+            } else if ("DELETE_FILE".equals(op)) {
+                Map<String, Object> manifest = storage.getMetadata("manifest_" + filename);
+                if (manifest != null && !manifest.isEmpty()) {
+                    Object blocksObj = manifest.get("blocks");
+                    if (blocksObj instanceof List<?> blocks) {
+                        for (Object b : blocks) {
+                            if (b instanceof Map<?, ?> blockInfo) {
+                                storage.deleteBlock(String.valueOf(blockInfo.get("block_id")));
+                            }
+                        }
+                    }
+                    storage.deleteMetadata("manifest_" + filename);
+                }
+                log.info("[NODE {}] DELETE SYNC: Removed {}", config.getNodeId(), filename);
             }
         });
 
