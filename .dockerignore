@@ -1,0 +1,10 @@
+target/
+data/
+node_*.log
+.git/
+.idea/
+*.iml
+.vscode/
+ui/
+README.md
+DOCKER.md

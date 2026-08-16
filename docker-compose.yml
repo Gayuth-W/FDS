@@ -1,0 +1,95 @@
+# Full stack: a 5-node Raft cluster + React dashboard + Prometheus.
+#
+#   docker compose up --build
+#
+#   Dashboard:   http://localhost:8501
+#   Prometheus:  http://localhost:9090   (scrapes every node's /actuator/prometheus)
+#   Nodes:       http://localhost:8001 .. :8005
+#
+# To enable the clock-skew chaos scenario, start with faketime preloaded:
+#   ENABLE_FAKETIME=1 docker compose up --build
+#
+# All nodes run the SAME image (built once from ./Dockerfile); identity comes
+# from NODE_ID / PORT, and peers are discovered by service name via CLUSTER_NODES.
+
+x-cluster-nodes: &cluster_nodes "node1=http://node1:8001,node2=http://node2:8002,node3=http://node3:8003,node4=http://node4:8004,node5=http://node5:8005"
+
+x-node: &node-defaults
+  build: .
+  image: dfs-node:latest
+  restart: unless-stopped
+  networks: [dfsnet]
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://localhost:$${PORT}/health || exit 1"]
+    interval: 2s
+    timeout: 2s
+    retries: 15
+    start_period: 5s
+
+services:
+  node1:
+    <<: *node-defaults
+    container_name: dfs-node1
+    environment: {NODE_ID: node1, PORT: "8001", CLUSTER_NODES: *cluster_nodes, ENABLE_FAKETIME: "${ENABLE_FAKETIME:-0}"}
+    ports: ["8001:8001"]
+    volumes: ["node1-data:/app/data"]
+
+  node2:
+    <<: *node-defaults
+    container_name: dfs-node2
+    environment: {NODE_ID: node2, PORT: "8002", CLUSTER_NODES: *cluster_nodes, ENABLE_FAKETIME: "${ENABLE_FAKETIME:-0}"}
+    ports: ["8002:8002"]
+    volumes: ["node2-data:/app/data"]
+
+  node3:
+    <<: *node-defaults
+    container_name: dfs-node3
+    environment: {NODE_ID: node3, PORT: "8003", CLUSTER_NODES: *cluster_nodes, ENABLE_FAKETIME: "${ENABLE_FAKETIME:-0}"}
+    ports: ["8003:8003"]
+    volumes: ["node3-data:/app/data"]
+
+  node4:
+    <<: *node-defaults
+    container_name: dfs-node4
+    environment: {NODE_ID: node4, PORT: "8004", CLUSTER_NODES: *cluster_nodes, ENABLE_FAKETIME: "${ENABLE_FAKETIME:-0}"}
+    ports: ["8004:8004"]
+    volumes: ["node4-data:/app/data"]
+
+  node5:
+    <<: *node-defaults
+    container_name: dfs-node5
+    environment: {NODE_ID: node5, PORT: "8005", CLUSTER_NODES: *cluster_nodes, ENABLE_FAKETIME: "${ENABLE_FAKETIME:-0}"}
+    ports: ["8005:8005"]
+    volumes: ["node5-data:/app/data"]
+
+  ui:
+    build: ./frontend
+    image: dfs-ui:latest
+    container_name: dfs-ui
+    ports: ["8501:80"]
+    networks: [dfsnet]
+    depends_on:
+      node1: {condition: service_healthy}
+      node2: {condition: service_healthy}
+      node3: {condition: service_healthy}
+      node4: {condition: service_healthy}
+      node5: {condition: service_healthy}
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dfs-prometheus
+    ports: ["9090:9090"]
+    volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    networks: [dfsnet]
+    depends_on: [node1, node2, node3, node4, node5]
+
+networks:
+  dfsnet:
+    driver: bridge
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
+  node4-data:
+  node5-data:

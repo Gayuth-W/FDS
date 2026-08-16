@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: dfs-node
+  servlet:
+    multipart:
+      # Allow large file uploads (block splitting handles the rest)
+      max-file-size: 512MB
+      max-request-size: 512MB
+  mvc:
+    async:
+      request-timeout: 30000
+
+# server.port is driven by the PORT environment variable at startup
+# (see DfsApplication.main). Defaults to 8001 when PORT is unset.
+server:
+  port: ${PORT:8001}
+
+# Observability: expose Prometheus scrape + health endpoints.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      node: ${NODE_ID:node1}
+
+logging:
+  level:
+    root: INFO
+    com.dfs: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
